@@ -1,53 +1,95 @@
-<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PDF Gallery</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.css">
 <style>
-body{margin:0;background:#0b0b0b;color:#f0f0f0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-#w{max-width:1100px;margin:28px auto;padding:0 16px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
-.card{background:#111;border-radius:10px;overflow:hidden;box-shadow:0 8px 18px rgba(0,0,0,.12)}
-.thumb{width:100%;height:280px;object-fit:cover;background:#000;display:block}
-.meta{padding:8px 10px;font-size:12px;opacity:.8}
-.badge{font-size:11px;opacity:.7}
+  body{margin:0;background:#0b0b0b;color:#f0f0f0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  #w{max-width:1100px;margin:28px auto;padding:0 16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+  .card{background:#111;border-radius:10px;overflow:hidden;box-shadow:0 8px 18px rgba(0,0,0,.12)}
+  .thumb{width:100%;height:280px;object-fit:cover;background:#000;display:block}
+  .meta{padding:8px 10px;font-size:12px;opacity:.8}
+  #status{opacity:.6;margin-top:6px}
 </style>
-<div id="w"><h1 style="margin:0 0 12px;font-size:18px">PDF Library</h1><div id="grid" class="grid tz-gallery"></div><div id="status"></div></div>
+<div id="w">
+  <h1 style="margin:0 0 12px;font-size:18px">PDF Library</h1>
+  <div id="grid" class="grid tz-gallery"></div>
+  <div id="status"></div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.js"></script>
 <script>
-const CFG={owner:"propropro25",repo:"Diagnosis-Causes",path:"pdfs",branch:"main"}; // put PDFs in /pdfs
-const S=t=>document.getElementById("status").textContent=t||"";
-pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.js";
+  // ======= CONFIG (your repo) =======
+  const CFG = {
+    owner:  "propropro25",
+    repo:   "Vaccine-PDFs",
+    path:   "pdfs",     // PDFs are in /pdfs
+    branch: "main"
+  };
+  // ==================================
 
-async function list(){
-  const r=await fetch(`https://api.github.com/repos/${CFG.owner}/${CFG.repo}/contents/${encodeURIComponent(CFG.path)}?ref=${CFG.branch}`);
-  if(!r.ok) throw new Error("GitHub API "+r.status);
-  return (await r.json()).filter(x=>x.type==="file"&&x.name.toLowerCase().endsWith(".pdf"))
-    .sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
-}
-async function renderThumb(url){
-  const pdf=await pdfjsLib.getDocument(url).promise;
-  const page=await pdf.getPage(1);
-  const vp=page.getViewport({scale:0.5});
-  const c=document.createElement("canvas"); c.width=vp.width; c.height=vp.height;
-  await page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;
-  return c.toDataURL("image/jpeg",0.8);
-}
-(async()=>{
-  try{
-    S("Loading…");
-    const items=await list();
-    const grid=document.getElementById("grid");
-    for(const it of items){
-      const a=document.createElement("a"); a.href=it.download_url; a.setAttribute("data-caption",it.name); a.target="_blank";
-      const img=document.createElement("img"); img.className="thumb"; img.alt=it.name; img.loading="lazy";
-      a.appendChild(img);
-      const wrap=document.createElement("div"); wrap.className="card"; wrap.appendChild(a);
-      const meta=document.createElement("div"); meta.className="meta"; meta.textContent=it.name; wrap.appendChild(meta);
-      grid.appendChild(wrap);
-      renderThumb(it.download_url).then(src=>img.src=src).catch(()=>{img.style.height="80px"; img.alt="Preview failed";});
+  const S = t => document.getElementById("status").textContent = t || "";
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.js";
+
+  async function list() {
+    const url = `https://api.github.com/repos/${CFG.owner}/${CFG.repo}/contents/${encodeURIComponent(CFG.path)}?ref=${CFG.branch}`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("GitHub API " + r.status + " (repo must be public)");
+    return (await r.json())
+      .filter(x => x.type === "file" && x.name.toLowerCase().endsWith(".pdf"))
+      .sort((a,b) => a.name.localeCompare(b.name, undefined, {numeric:true}));
+  }
+
+  async function renderThumb(pdfUrl) {
+    const pdf  = await pdfjsLib.getDocument(pdfUrl).promise;
+    const page = await pdf.getPage(1);
+    const vp   = page.getViewport({ scale: 0.45 });
+    const c = document.createElement("canvas");
+    c.width = vp.width; c.height = vp.height;
+    await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+    return c.toDataURL("image/jpeg", 0.8);
+  }
+
+  (async()=>{
+    try{
+      S("Loading…");
+      const items = await list();
+      const grid = document.getElementById("grid");
+
+      // Progressive rendering to handle large sets
+      for (const it of items) {
+        const a = document.createElement("a");
+        a.href = it.download_url;
+        a.setAttribute("data-caption", it.name);
+        a.target = "_blank";
+
+        const img = document.createElement("img");
+        img.className = "thumb";
+        img.alt = it.name;
+        img.loading = "lazy";
+        a.appendChild(img);
+
+        const card = document.createElement("div");
+        card.className = "card";
+        card.appendChild(a);
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = it.name;
+        card.appendChild(meta);
+
+        grid.appendChild(card);
+
+        renderThumb(it.download_url).then(src => img.src = src)
+          .catch(()=>{ img.style.height="80px"; img.alt="Preview failed"; });
+      }
+
+      baguetteBox.run('.tz-gallery', { noScrollbars:true, async:true });
+      S(`${items.length} PDF(s)`);
+    }catch(e){
+      console.error(e);
+      S("Failed to load PDFs. Make the repo public or mirror PDFs to a public repo.");
     }
-    baguetteBox.run('.tz-gallery',{noScrollbars:true,async:true});
-    S(`${items.length} PDF(s)`);
-  }catch(e){console.error(e);S("Failed to load PDFs. Ensure repo/path public.");}
-})();
+  })();
 </script>
