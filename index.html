@@ -1,6 +1,5 @@
 <!doctype html>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PDF Library</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.css">
 <style>
@@ -12,7 +11,6 @@
   .thumb{width:100%;height:280px;object-fit:cover;background:#000;display:block}
   .meta{padding:8px 10px;font-size:12px;opacity:.85}
   #status{opacity:.9;margin-top:10px;white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace}
-  a{color:#9ec3ff}
 </style>
 <div id="w">
   <h1 style="margin:0 0 12px;font-size:18px">PDF Library</h1>
@@ -23,71 +21,58 @@
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.js"></script>
 <script>
-const CFG={owner:"propropro25",repo:"Vaccine-PDFs",path:"pdfs",branch:"main"};
-const S=(t)=>document.getElementById("status").textContent=t||"";
-const append=(t)=>document.getElementById("status").textContent+=t;
-const apiURL=`https://api.github.com/repos/${CFG.owner}/${CFG.repo}/contents/${encodeURIComponent(CFG.path)}?ref=${CFG.branch}`;
+const CFG={owner:"propropro25",repo:"Vaccine-PDFs",branch:"main",prefix:"pdfs/"}; // PDFs live under pdfs/
+const S=t=>document.getElementById("status").textContent=t||"";
+pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.js";
+
+// Build raw URL for a given path
+const raw = p => `https://raw.githubusercontent.com/${CFG.owner}/${CFG.repo}/${CFG.branch}/${p}`;
+
+async function listViaTrees(){
+  const url=`https://api.github.com/repos/${CFG.owner}/${CFG.repo}/git/trees/${CFG.branch}?recursive=1`;
+  const r=await fetch(url);
+  if(!r.ok) throw new Error(`Trees API ${r.status} ${await r.text()}`);
+  const j=await r.json();
+  if(!j.tree) throw new Error("No tree in response");
+  // keep only files under pdfs/ with .pdf extension
+  return j.tree
+    .filter(n => n.type==="blob" && n.path.toLowerCase().startsWith(CFG.prefix.toLowerCase()) && n.path.toLowerCase().endsWith(".pdf"))
+    .sort((a,b)=>a.path.localeCompare(b.path,undefined,{numeric:true}))
+    .map(n => ({ name: n.path.split("/").pop(), path: n.path, url: raw(n.path) }));
+}
+
+async function renderThumb(url){
+  const pdf=await pdfjsLib.getDocument({url,withCredentials:false}).promise;
+  const page=await pdf.getPage(1);
+  const vp=page.getViewport({scale:0.45});
+  const c=document.createElement("canvas"); c.width=vp.width; c.height=vp.height;
+  await page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;
+  return c.toDataURL("image/jpeg",0.8);
+}
 
 (async()=>{
   try{
-    // Init PDF.js worker (explicit)
-    if (!window.pdfjsLib) throw new Error("pdfjsLib not present");
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.js";
+    S("Listing PDFs via Trees API…");
+    const files=await listViaTrees();
+    if(!files.length){ S("No PDFs found under pdfs/. Check folder name and branch."); return; }
+    S(`Found ${files.length} PDF(s). Rendering…`);
 
-    // 1) List PDFs
-    S("Listing PDFs…\n" + apiURL);
-    const r = await fetch(apiURL, {headers:{"Accept":"application/vnd.github+json"}});
-    if (!r.ok){
-      const t = await r.text();
-      throw new Error(`GitHub API ${r.status}. Body:\n${t.slice(0,500)}`);
-    }
-    const items = await r.json();
-    if (!Array.isArray(items)) throw new Error("Unexpected API response (not an array).");
+    const grid=document.getElementById("grid");
+    for(const f of files){
+      const a=document.createElement("a"); a.href=f.url; a.target="_blank"; a.setAttribute("data-caption", f.name);
+      const img=document.createElement("img"); img.className="thumb"; img.alt=f.name; img.loading="lazy";
+      a.appendChild(img);
 
-    const pdfs = items
-      .filter(x => x && x.type==="file" && /\.pdf$/i.test(x.name))
-      .sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
-
-    if (!pdfs.length){
-      S("No PDFs found in /pdfs on branch main.\nCheck: folder name, branch, and that files are committed.");
-      return;
-    }
-
-    S(`Found ${pdfs.length} PDF(s). Rendering thumbnails…`);
-
-    const grid = document.getElementById("grid");
-
-    // Render progressively; if a thumbnail fails, keep the link
-    for (const it of pdfs){
-      const card = document.createElement("div"); card.className="card";
-      const a    = document.createElement("a");  a.href = it.download_url; a.target="_blank"; a.setAttribute("data-caption", it.name);
-      const img  = document.createElement("img"); img.className="thumb"; img.alt = it.name; img.loading="lazy";
-      a.appendChild(img); card.appendChild(a);
-      const meta = document.createElement("div"); meta.className="meta"; meta.textContent = it.name; card.appendChild(meta);
+      const card=document.createElement("div"); card.className="card"; card.appendChild(a);
+      const meta=document.createElement("div"); meta.className="meta"; meta.textContent=f.name; card.appendChild(meta);
       grid.appendChild(card);
 
-      // Generate first-page thumbnail
-      try{
-        const pdf = await pdfjsLib.getDocument({ url: it.download_url, withCredentials:false }).promise;
-        const page = await pdf.getPage(1);
-        const vp = page.getViewport({ scale: 0.45 });
-        const c = document.createElement("canvas"); c.width = vp.width; c.height = vp.height;
-        await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
-        img.src = c.toDataURL("image/jpeg",0.8);
-      }catch(thErr){
-        console.warn("Thumb failed for", it.name, thErr);
-        img.style.height="80px";
-        img.alt="Preview failed";
-      }
+      renderThumb(f.url).then(src=>img.src=src).catch(()=>{ img.style.height="80px"; img.alt="Preview failed"; });
     }
-
-    baguetteBox.run('.tz-gallery',{ noScrollbars:true, async:true });
-    S(`Ready. ${pdfs.length} PDF(s).`);
-
-  }catch(err){
-    console.error(err);
-    S("Error:\n" + (err && err.message ? err.message : String(err)));
-    append("\n\nChecklist:\n- Repo public (you confirmed)\n- Path exactly /pdfs (case-sensitive)\n- Branch main\n- Try opening one raw URL directly:\n  https://raw.githubusercontent.com/propropro25/Vaccine-PDFs/main/pdfs/FILE.pdf");
+    baguetteBox.run('.tz-gallery',{noScrollbars:true,async:true});
+    S(`Ready. ${files.length} PDF(s).`);
+  }catch(e){
+    console.error(e); S("Error: "+(e.message||e));
   }
 })();
 </script>
