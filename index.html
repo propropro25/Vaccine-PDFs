@@ -4,7 +4,8 @@ permalink: /
 ---
 
 <!doctype html>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PDF Library</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.css">
 <style>
@@ -33,7 +34,7 @@ permalink: /
   {% assign files = site.static_files | where_exp: "f", "f.path contains '/pdfs/'" %}
   {% for f in files %}
     {% if f.extname == ".pdf" %}
-      { href: "{{ f.path | relative_url }}", name: "{{ f.name | escape }}" }{% unless forloop.last %},{% endunless %}
+      { href: "{{ f.path | relative_url | uri_escape }}", name: "{{ f.name | escape }}" }{% unless forloop.last %},{% endunless %}
     {% endif %}
   {% endfor %}
   ];
@@ -43,30 +44,40 @@ permalink: /
   pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.js";
 
   async function thumb(url){
-    const pdf=await pdfjsLib.getDocument({url,withCredentials:false}).promise;
-    const page=await pdf.getPage(1);
-    const vp=page.getViewport({scale:0.45});
-    const c=document.createElement("canvas"); c.width=vp.width; c.height=vp.height;
-    await page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;
-    return c.toDataURL("image/jpeg",0.8);
+    const pdf = await pdfjsLib.getDocument({ url, withCredentials:false }).promise;
+    const page = await pdf.getPage(1);
+    const vp = page.getViewport({ scale: 0.45 });
+    const c = document.createElement("canvas"); c.width = vp.width; c.height = vp.height;
+    await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+    return c.toDataURL("image/jpeg", 0.8);
   }
 
   (async()=>{
     try{
       if(!PDFS.length){ S("No PDFs found under /pdfs. Confirm folder name and that Jekyll is enabled (no .nojekyll file)."); return; }
-      const items = PDFS.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+      const items = PDFS.sort((a,b)=>a.name.localeCompare(b.name, undefined, {numeric:true}));
       const grid = document.getElementById("grid");
+
       for(const it of items){
-        const a=document.createElement("a"); a.href=it.href; a.target="_blank"; a.setAttribute("data-caption", it.name);
-        const img=document.createElement("img"); img.className="thumb"; img.alt=it.name; img.loading="lazy";
+        const a = document.createElement("a");
+        a.href = it.href; a.target = "_blank"; a.setAttribute("data-caption", it.name);
+
+        const img = document.createElement("img");
+        img.className = "thumb"; img.alt = it.name; img.loading = "lazy";
         a.appendChild(img);
-        const card=document.createElement("div"); card.className="card"; card.appendChild(a);
-        const meta=document.createElement("div"); meta.className="meta"; meta.textContent=it.name; card.appendChild(meta);
+
+        const card = document.createElement("div"); card.className = "card"; card.appendChild(a);
+        const meta = document.createElement("div"); meta.className = "meta"; meta.textContent = it.name; card.appendChild(meta);
         grid.appendChild(card);
-        try{ img.src = await thumb(it.href); }catch{ img.style.height="80px"; img.alt="Preview failed"; }
+
+        try { img.src = await thumb(it.href); }
+        catch { img.style.height = "80px"; img.alt = "Preview failed"; }
       }
-      baguetteBox.run('.tz-gallery',{noScrollbars:true,async:true});
+
+      baguetteBox.run('.tz-gallery', { noScrollbars:true, async:true });
       S(`Ready. ${items.length} PDF(s).`);
-    }catch(e){ console.error(e); S("Error: " + (e?.message || e)); }
+    }catch(e){
+      console.error(e); S("Error: " + (e?.message || e));
+    }
   })();
 </script>
