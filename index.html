@@ -4,8 +4,7 @@ permalink: /
 ---
 
 <!doctype html>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PDF Library</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.css">
 <style>
@@ -17,7 +16,6 @@ permalink: /
   .thumb{width:100%;height:280px;object-fit:cover;background:#000;display:block}
   .meta{padding:8px 10px;font-size:12px;opacity:.85}
   #status{opacity:.9;margin-top:10px;white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace}
-  a{color:#9ec3ff}
 </style>
 
 <div id="w">
@@ -29,19 +27,18 @@ permalink: /
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.js"></script>
 <script>
-  // ===== Build-time manifest via Jekyll =====
+  // Build-time manifest (all PDFs anywhere in the project)
   const PDFS = [
-  {% assign files = site.static_files | where_exp: "f", "f.path contains '/pdfs/'" %}
-  {% for f in files %}
-    {% if f.extname == ".pdf" %}
-      { href: "{{ f.path | relative_url | uri_escape }}", name: "{{ f.name | escape }}" }{% unless forloop.last %},{% endunless %}
-    {% endif %}
+  {% assign pdfs = site.static_files | where: "extname", ".pdf" %}
+  {% for f in pdfs %}
+    { href: "{{ f.path | relative_url | uri_escape }}", name: "{{ f.name | escape }}" }{% unless forloop.last %},{% endunless %}
   {% endfor %}
   ];
-  // =========================================
 
   const S = t => document.getElementById("status").textContent = t || "";
   pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.js";
+
+  const MAKE_THUMBS = true; // set false to debug with links only
 
   async function thumb(url){
     const pdf = await pdfjsLib.getDocument({ url, withCredentials:false }).promise;
@@ -54,7 +51,7 @@ permalink: /
 
   (async()=>{
     try{
-      if(!PDFS.length){ S("No PDFs found under /pdfs. Confirm folder name and that Jekyll is enabled (no .nojekyll file)."); return; }
+      if(!PDFS.length){ S("No PDFs found. Commit files, then hard refresh (⌘⇧R / Ctrl+F5)."); return; }
       const items = PDFS.sort((a,b)=>a.name.localeCompare(b.name, undefined, {numeric:true}));
       const grid = document.getElementById("grid");
 
@@ -70,8 +67,12 @@ permalink: /
         const meta = document.createElement("div"); meta.className = "meta"; meta.textContent = it.name; card.appendChild(meta);
         grid.appendChild(card);
 
-        try { img.src = await thumb(it.href); }
-        catch { img.style.height = "80px"; img.alt = "Preview failed"; }
+        if (MAKE_THUMBS){
+          try { img.src = await thumb(it.href); }
+          catch { img.style.height = "80px"; img.alt = "Preview failed"; }
+        } else {
+          img.style.height = "80px"; img.alt = "Open PDF";
+        }
       }
 
       baguetteBox.run('.tz-gallery', { noScrollbars:true, async:true });
