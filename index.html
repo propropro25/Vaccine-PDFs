@@ -1,8 +1,3 @@
----
-layout: null
-permalink: /
----
-
 <!doctype html>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PDF Library</title>
@@ -27,58 +22,58 @@ permalink: /
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.js"></script>
 <script>
-  // Build-time manifest (all PDFs anywhere in the project)
-  const PDFS = [
-  {% assign pdfs = site.static_files | where: "extname", ".pdf" %}
-  {% for f in pdfs %}
-    { href: "{{ f.path | relative_url | uri_escape }}", name: "{{ f.name | escape }}" }{% unless forloop.last %},{% endunless %}
-  {% endfor %}
-  ];
+const S=t=>document.getElementById("status").textContent=t||"";
+pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.js";
 
-  const S = t => document.getElementById("status").textContent = t || "";
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.js";
+async function loadManifest(){
+  const r = await fetch("pdfs.json", {cache:"no-store"});
+  if(!r.ok) throw new Error("Missing pdfs.json (run Action or refresh after it runs).");
+  return r.json();
+}
 
-  const MAKE_THUMBS = true; // set false to debug with links only
+async function renderThumb(pdfPath){
+  const url = pdfPath; // relative path on the same origin
+  const pdf = await pdfjsLib.getDocument({url, withCredentials:false}).promise;
+  const page = await pdf.getPage(1);
+  const vp = page.getViewport({scale:0.45});
+  const c = document.createElement("canvas"); c.width = vp.width; c.height = vp.height;
+  await page.render({canvasContext:c.getContext("2d"), viewport:vp}).promise;
+  return c.toDataURL("image/jpeg",0.8);
+}
 
-  async function thumb(url){
-    const pdf = await pdfjsLib.getDocument({ url, withCredentials:false }).promise;
-    const page = await pdf.getPage(1);
-    const vp = page.getViewport({ scale: 0.45 });
-    const c = document.createElement("canvas"); c.width = vp.width; c.height = vp.height;
-    await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
-    return c.toDataURL("image/jpeg", 0.8);
-  }
+(async()=>{
+  try{
+    const items = (await loadManifest()).sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+    S(`Found ${items.length} PDF(s)…`);
+    const grid = document.getElementById("grid");
 
-  (async()=>{
-    try{
-      if(!PDFS.length){ S("No PDFs found. Commit files, then hard refresh (⌘⇧R / Ctrl+F5)."); return; }
-      const items = PDFS.sort((a,b)=>a.name.localeCompare(b.name, undefined, {numeric:true}));
-      const grid = document.getElementById("grid");
-
-      for(const it of items){
-        const a = document.createElement("a");
-        a.href = it.href; a.target = "_blank"; a.setAttribute("data-caption", it.name);
-
-        const img = document.createElement("img");
-        img.className = "thumb"; img.alt = it.name; img.loading = "lazy";
-        a.appendChild(img);
-
-        const card = document.createElement("div"); card.className = "card"; card.appendChild(a);
-        const meta = document.createElement("div"); meta.className = "meta"; meta.textContent = it.name; card.appendChild(meta);
-        grid.appendChild(card);
-
-        if (MAKE_THUMBS){
-          try { img.src = await thumb(it.href); }
-          catch { img.style.height = "80px"; img.alt = "Preview failed"; }
-        } else {
-          img.style.height = "80px"; img.alt = "Open PDF";
-        }
+    // lazy thumbnails
+    const io = new IntersectionObserver(async entries=>{
+      for(const e of entries){
+        if(!e.isIntersecting) continue;
+        const img = e.target;
+        io.unobserve(img);
+        try{ img.src = await renderThumb(img.dataset.pdf); }
+        catch{ img.style.height="80px"; img.alt="Preview failed"; }
       }
+    }, {rootMargin:"200px"});
 
-      baguetteBox.run('.tz-gallery', { noScrollbars:true, async:true });
-      S(`Ready. ${items.length} PDF(s).`);
-    }catch(e){
-      console.error(e); S("Error: " + (e?.message || e));
+    for(const it of items){
+      const a = document.createElement("a"); a.href = it.href; a.target = "_blank"; a.setAttribute("data-caption", it.name);
+      const img = document.createElement("img"); img.className="thumb"; img.alt=it.name; img.loading="lazy"; img.dataset.pdf = it.href;
+      a.appendChild(img);
+
+      const card = document.createElement("div"); card.className="card"; card.appendChild(a);
+      const meta = document.createElement("div"); meta.className="meta"; meta.textContent = it.name; card.appendChild(meta);
+      grid.appendChild(card);
+
+      io.observe(img);
     }
-  })();
+
+    baguetteBox.run('.tz-gallery',{noScrollbars:true,async:true});
+    S(`Ready. ${items.length} PDF(s).`);
+  }catch(e){
+    console.error(e); S("Error: " + (e?.message || e));
+  }
+})();
 </script>
