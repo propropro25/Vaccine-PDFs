@@ -25,15 +25,17 @@
 const S=t=>document.getElementById("status").textContent=t||"";
 pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.js";
 
+const MAKE_THUMBS = true; // set false to debug grid without rendering
+const MANIFEST_URL = "pdfs.json"; // already live at your Pages root
+
 async function loadManifest(){
-  const r = await fetch("pdfs.json", {cache:"no-store"});
-  if(!r.ok) throw new Error("Missing pdfs.json (run Action or refresh after it runs).");
+  const r = await fetch(MANIFEST_URL, {cache:"no-store"});
+  if(!r.ok) throw new Error("Cannot load pdfs.json ("+r.status+").");
   return r.json();
 }
 
 async function renderThumb(pdfPath){
-  const url = pdfPath; // relative path on the same origin
-  const pdf = await pdfjsLib.getDocument({url, withCredentials:false}).promise;
+  const pdf = await pdfjsLib.getDocument({url: pdfPath, withCredentials:false}).promise;
   const page = await pdf.getPage(1);
   const vp = page.getViewport({scale:0.45});
   const c = document.createElement("canvas"); c.width = vp.width; c.height = vp.height;
@@ -44,7 +46,9 @@ async function renderThumb(pdfPath){
 (async()=>{
   try{
     const items = (await loadManifest()).sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+    if(!items.length){ S("pdfs.json is empty."); return; }
     S(`Found ${items.length} PDF(s)…`);
+
     const grid = document.getElementById("grid");
 
     // lazy thumbnails
@@ -53,14 +57,18 @@ async function renderThumb(pdfPath){
         if(!e.isIntersecting) continue;
         const img = e.target;
         io.unobserve(img);
+        if(!MAKE_THUMBS){ img.style.height="80px"; img.alt="Open PDF"; continue; }
         try{ img.src = await renderThumb(img.dataset.pdf); }
         catch{ img.style.height="80px"; img.alt="Preview failed"; }
       }
     }, {rootMargin:"200px"});
 
     for(const it of items){
-      const a = document.createElement("a"); a.href = it.href; a.target = "_blank"; a.setAttribute("data-caption", it.name);
-      const img = document.createElement("img"); img.className="thumb"; img.alt=it.name; img.loading="lazy"; img.dataset.pdf = it.href;
+      const a = document.createElement("a");
+      a.href = it.href; a.target = "_blank"; a.setAttribute("data-caption", it.name);
+
+      const img = document.createElement("img");
+      img.className="thumb"; img.alt=it.name; img.loading="lazy"; img.dataset.pdf = it.href;
       a.appendChild(img);
 
       const card = document.createElement("div"); card.className="card"; card.appendChild(a);
@@ -73,7 +81,8 @@ async function renderThumb(pdfPath){
     baguetteBox.run('.tz-gallery',{noScrollbars:true,async:true});
     S(`Ready. ${items.length} PDF(s).`);
   }catch(e){
-    console.error(e); S("Error: " + (e?.message || e));
+    console.error(e);
+    S("Error: " + (e?.message || e));
   }
 })();
 </script>
