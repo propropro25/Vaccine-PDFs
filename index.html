@@ -1,88 +1,109 @@
 <!doctype html>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PDF Library</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.css">
-<style>
-  :root{color-scheme:dark}
-  body{margin:0;background:#0b0b0b;color:#f0f0f0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-  #w{max-width:1100px;margin:28px auto;padding:0 16px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
-  .card{background:#111;border-radius:10px;overflow:hidden;box-shadow:0 8px 18px rgba(0,0,0,.12)}
-  .thumb{width:100%;height:280px;object-fit:cover;background:#000;display:block}
-  .meta{padding:8px 10px;font-size:12px;opacity:.85}
-  #status{opacity:.9;margin-top:10px;white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace}
-</style>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>PDF Library</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.css">
+  <style>
+    :root{color-scheme:dark}
+    body{margin:0;background:#0b0b0b;color:#f0f0f0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    #w{max-width:1100px;margin:28px auto;padding:0 16px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+    .card{background:#111;border-radius:10px;overflow:hidden;box-shadow:0 8px 18px rgba(0,0,0,.12)}
+    .thumb{width:100%;height:280px;object-fit:cover;background:#000;display:block}
+    .meta{padding:8px 10px;font-size:12px;opacity:.85}
+    #status{opacity:.9;margin-top:10px;white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace}
+  </style>
+</head>
+<body>
+  <div id="w">
+    <h1 style="margin:0 0 12px;font-size:18px">PDF Library</h1>
+    <div id="grid" class="grid tz-gallery"></div>
+    <div id="status">Loading…</div>
+  </div>
 
-<div id="w">
-  <h1 style="margin:0 0 12px;font-size:18px">PDF Library</h1>
-  <div id="grid" class="grid tz-gallery"></div>
-  <div id="status">Loading…</div>
-</div>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.js" defer></script>
 
-<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.js"></script>
-<script>
-const S=t=>document.getElementById("status").textContent=t||"";
-pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.js";
+  <script defer>
+  // Display helpers
+  const S = t => document.getElementById("status").textContent = t || "";
 
-const MAKE_THUMBS = true; // set false to debug grid without rendering
-const MANIFEST_URL = "pdfs.json"; // already live at your Pages root
+  // Toggle thumbnails: start false to prove data+grid work, then set true
+  const MAKE_THUMBS = false;
 
-async function loadManifest(){
-  const r = await fetch(MANIFEST_URL, {cache:"no-store"});
-  if(!r.ok) throw new Error("Cannot load pdfs.json ("+r.status+").");
-  return r.json();
-}
+  // Cache-busted manifest path (same origin)
+  const MANIFEST_URL = "./pdfs.json?v=" + Date.now();
 
-async function renderThumb(pdfPath){
-  const pdf = await pdfjsLib.getDocument({url: pdfPath, withCredentials:false}).promise;
-  const page = await pdf.getPage(1);
-  const vp = page.getViewport({scale:0.45});
-  const c = document.createElement("canvas"); c.width = vp.width; c.height = vp.height;
-  await page.render({canvasContext:c.getContext("2d"), viewport:vp}).promise;
-  return c.toDataURL("image/jpeg",0.8);
-}
+  window.addEventListener('DOMContentLoaded', async () => {
+    try {
+      // 1) Load manifest
+      const r = await fetch(MANIFEST_URL, {cache:"no-store"});
+      if (!r.ok) throw new Error("Cannot load pdfs.json ("+r.status+").");
+      const items = (await r.json()).sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+      if (!items.length) { S("pdfs.json is empty."); return; }
 
-(async()=>{
-  try{
-    const items = (await loadManifest()).sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
-    if(!items.length){ S("pdfs.json is empty."); return; }
-    S(`Found ${items.length} PDF(s)…`);
+      S(`Found ${items.length} PDF(s)…`);
 
-    const grid = document.getElementById("grid");
+      // 2) Render link grid immediately (no PDF.js yet)
+      const grid = document.getElementById("grid");
+      for (const it of items) {
+        const a = document.createElement("a");
+        a.href = it.href; a.target = "_blank"; a.setAttribute("data-caption", it.name);
 
-    // lazy thumbnails
-    const io = new IntersectionObserver(async entries=>{
-      for(const e of entries){
-        if(!e.isIntersecting) continue;
-        const img = e.target;
-        io.unobserve(img);
-        if(!MAKE_THUMBS){ img.style.height="80px"; img.alt="Open PDF"; continue; }
-        try{ img.src = await renderThumb(img.dataset.pdf); }
-        catch{ img.style.height="80px"; img.alt="Preview failed"; }
+        const img = document.createElement("img");
+        img.className = "thumb"; img.alt = it.name; img.loading = "lazy";
+        // temporary placeholder so layout is stable before thumb render
+        img.style.height = "80px"; img.alt = "Open PDF";
+        a.appendChild(img);
+
+        const card = document.createElement("div"); card.className = "card"; card.appendChild(a);
+        const meta = document.createElement("div"); meta.className = "meta"; meta.textContent = it.name; card.appendChild(meta);
+        grid.appendChild(card);
       }
-    }, {rootMargin:"200px"});
 
-    for(const it of items){
-      const a = document.createElement("a");
-      a.href = it.href; a.target = "_blank"; a.setAttribute("data-caption", it.name);
+      // Lightbox (click opens file; baguetteBox adds overlay UI)
+      baguetteBox.run('.tz-gallery', { noScrollbars:true, async:true });
 
-      const img = document.createElement("img");
-      img.className="thumb"; img.alt=it.name; img.loading="lazy"; img.dataset.pdf = it.href;
-      a.appendChild(img);
+      // 3) If thumbs enabled, lazily draw first page previews
+      if (MAKE_THUMBS) {
+        if (!window.pdfjsLib) throw new Error("pdfjsLib not present");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.js";
 
-      const card = document.createElement("div"); card.className="card"; card.appendChild(a);
-      const meta = document.createElement("div"); meta.className="meta"; meta.textContent = it.name; card.appendChild(meta);
-      grid.appendChild(card);
+        const io = new IntersectionObserver(async entries => {
+          for (const e of entries) {
+            if (!e.isIntersecting) continue;
+            const img = e.target;
+            io.unobserve(img);
+            try {
+              const url = img.dataset.pdf;
+              const pdf = await pdfjsLib.getDocument({ url, withCredentials:false }).promise;
+              const page = await pdf.getPage(1);
+              const vp = page.getViewport({ scale: 0.45 });
+              const c = document.createElement("canvas"); c.width = vp.width; c.height = vp.height;
+              await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+              img.src = c.toDataURL("image/jpeg", 0.8);
+              img.style.height = ""; // remove placeholder height
+            } catch {
+              img.alt = "Preview failed";
+            }
+          }
+        }, { rootMargin: "200px" });
 
-      io.observe(img);
+        // attach observer now that nodes exist
+        document.querySelectorAll(".thumb").forEach((img, i) => {
+          img.dataset.pdf = items[i].href;
+          io.observe(img);
+        });
+      }
+
+      S(`Ready. ${items.length} PDF(s).`);
+    } catch (e) {
+      console.error(e);
+      S("Error: " + (e?.message || e));
     }
-
-    baguetteBox.run('.tz-gallery',{noScrollbars:true,async:true});
-    S(`Ready. ${items.length} PDF(s).`);
-  }catch(e){
-    console.error(e);
-    S("Error: " + (e?.message || e));
-  }
-})();
-</script>
+  });
+  </script>
+</body>
+</html>
