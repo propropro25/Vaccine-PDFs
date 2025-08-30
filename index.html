@@ -1,53 +1,184 @@
-<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PDF Gallery</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.css">
-<style>
-body{margin:0;background:#0b0b0b;color:#f0f0f0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-#w{max-width:1100px;margin:28px auto;padding:0 16px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
-.card{background:#111;border-radius:10px;overflow:hidden;box-shadow:0 8px 18px rgba(0,0,0,.12)}
-.thumb{width:100%;height:280px;object-fit:cover;background:#000;display:block}
-.meta{padding:8px 10px;font-size:12px;opacity:.8}
-.badge{font-size:11px;opacity:.7}
-</style>
-<div id="w"><h1 style="margin:0 0 12px;font-size:18px">PDF Library</h1><div id="grid" class="grid tz-gallery"></div><div id="status"></div></div>
-<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/baguettebox.js@1.11.1/dist/baguetteBox.min.js"></script>
-<script>
-const CFG={owner:"propropro25",repo:"Diagnosis-Causes",path:"pdfs",branch:"main"}; // put PDFs in /pdfs
-const S=t=>document.getElementById("status").textContent=t||"";
-pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.js";
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>PDF Library</title>
+  <style>
+    :root{color-scheme:dark; --bg:#0b0b0b; --card:#121418; --card2:#0f1115; --muted:#9aa0a6; --ink:#e8eaed; --brand:#377dff; --brand-2:#5a96ff; --ring:#203a72}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Inter,"Helvetica Neue",Arial,sans-serif}
+    a{color:inherit}
+    #w{max-width:1200px;margin:28px auto;padding:0 18px}
+    .topbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
+    .title{font-size:22px;font-weight:700;margin-right:auto;display:flex;gap:10px;align-items:center}
+    .count{font:12px/1 ui-monospace,Consolas,monospace;color:var(--muted);padding:2px 6px;border-radius:999px;background:#10131a;border:1px solid #1c2435}
+    .search{position:relative;flex:1;min-width:240px}
+    .search input{width:100%;padding:11px 12px 11px 34px;border-radius:12px;background:#0e1219;border:1px solid #182032;color:var(--ink);outline:none}
+    .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.6}
+    .sort{display:flex;gap:8px;align-items:center}
+    .sort select{padding:10px 12px;border-radius:12px;background:#0e1219;border:1px solid #182032;color:var(--ink)}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+    .card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid #1b2232;border-radius:14px;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.25)}
+    .thumb-wrap{position:relative;aspect-ratio:3/4;background:#0a0d14}
+    .thumb{width:100%;height:100%;object-fit:cover;display:block}
+    .skeleton{background:linear-gradient(90deg,#0d1118 0%,#121722 40%,#0d1118 80%);background-size:200% 100%;animation:shimmer 1.1s infinite}
+    @keyframes shimmer{to{background-position:-200% 0}}
+    .badge{position:absolute;left:12px;bottom:12px;background:var(--brand);border:1px solid #2d65d2;color:#fff;padding:7px 12px;border-radius:999px;font-weight:600;font-size:12px;text-decoration:none;box-shadow:0 6px 18px rgba(21,79,255,.35)}
+    .badge:hover{background:var(--brand-2)}
+    .meta{padding:10px 12px;border-top:1px solid #161d2b;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#cfd5df}
+    #status{margin-top:10px;color:var(--muted);font:12px ui-monospace,Consolas,monospace}
+  </style>
+</head>
+<body>
+  <div id="w">
+    <div class="topbar">
+      <div class="title">PDF Library <span id="count" class="count">0</span></div>
+      <label class="search" aria-label="Search PDFs">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.1-4.1M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="#9aa0a6" stroke-width="2" stroke-linecap="round"/></svg>
+        <input id="q" type="search" placeholder="Search files…"/>
+      </label>
+      <div class="sort">
+        <select id="sort">
+          <option value="az" selected>Name A → Z</option>
+          <option value="za">Name Z → A</option>
+        </select>
+      </div>
+    </div>
 
-async function list(){
-  const r=await fetch(`https://api.github.com/repos/${CFG.owner}/${CFG.repo}/contents/${encodeURIComponent(CFG.path)}?ref=${CFG.branch}`);
-  if(!r.ok) throw new Error("GitHub API "+r.status);
-  return (await r.json()).filter(x=>x.type==="file"&&x.name.toLowerCase().endsWith(".pdf"))
-    .sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
-}
-async function renderThumb(url){
-  const pdf=await pdfjsLib.getDocument(url).promise;
-  const page=await pdf.getPage(1);
-  const vp=page.getViewport({scale:0.5});
-  const c=document.createElement("canvas"); c.width=vp.width; c.height=vp.height;
-  await page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;
-  return c.toDataURL("image/jpeg",0.8);
-}
-(async()=>{
-  try{
-    S("Loading…");
-    const items=await list();
-    const grid=document.getElementById("grid");
-    for(const it of items){
-      const a=document.createElement("a"); a.href=it.download_url; a.setAttribute("data-caption",it.name); a.target="_blank";
-      const img=document.createElement("img"); img.className="thumb"; img.alt=it.name; img.loading="lazy";
-      a.appendChild(img);
-      const wrap=document.createElement("div"); wrap.className="card"; wrap.appendChild(a);
-      const meta=document.createElement("div"); meta.className="meta"; meta.textContent=it.name; wrap.appendChild(meta);
-      grid.appendChild(wrap);
-      renderThumb(it.download_url).then(src=>img.src=src).catch(()=>{img.style.height="80px"; img.alt="Preview failed";});
+    <div id="grid" class="grid"></div>
+    <div id="status">Loading…</div>
+  </div>
+
+  <!-- PDF.js (v3 UMD build works reliably with workers in classic script mode) -->
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js" defer></script>
+
+  <script>
+  // ------- Settings -------
+  const MAKE_THUMBS = true;       // render page-1 thumbnails
+  const THUMB_SCALE = 0.60;       // 0.45–0.75 is typical
+  const MANIFEST_URL = "./pdfs.json?v=" + Date.now(); // same-origin json: [{name,href},…]
+
+  // ------- Helpers -------
+  const $ = sel => document.querySelector(sel);
+  const S = t => $("#status").textContent = t || "";
+
+  let ALL = [];          // full list from manifest
+  let VIEW = [];         // filtered/sorted list we render
+  let io = null;         // IntersectionObserver for thumbs
+
+  function applyFilterSort(){
+    const q = $("#q").value.trim().toLowerCase();
+    const mode = $("#sort").value;
+    // filter
+    VIEW = !q ? [...ALL] : ALL.filter(x => x.name.toLowerCase().includes(q));
+    // sort
+    VIEW.sort((a,b)=> a.name.localeCompare(b.name, undefined, {numeric:true, sensitivity:'base'}));
+    if (mode === "za") VIEW.reverse();
+    $("#count").textContent = VIEW.length;
+    renderGrid();
+  }
+
+  function renderGrid(){
+    const grid = $("#grid");
+    grid.innerHTML = "";
+    if (io){ io.disconnect(); io = null; }
+
+    for (const it of VIEW){
+      const card = document.createElement("figure");
+      card.className = "card";
+
+      const wrap = document.createElement("div");
+      wrap.className = "thumb-wrap";
+
+      const img = document.createElement("img");
+      img.className = "thumb skeleton";
+      img.alt = "Open PDF";
+      img.decoding = "async";
+      img.loading = "lazy";
+      img.dataset.pdf = it.href; // used by IO to render preview
+      wrap.appendChild(img);
+
+      const open = document.createElement("a");
+      open.href = it.href;
+      open.target = "_blank";
+      open.rel = "noopener";
+      open.className = "badge";
+      open.textContent = "Open PDF";
+      wrap.appendChild(open);
+
+      const meta = document.createElement("figcaption");
+      meta.className = "meta";
+      meta.title = it.name;
+      meta.textContent = it.name;
+
+      card.appendChild(wrap);
+      card.appendChild(meta);
+      grid.appendChild(card);
     }
-    baguetteBox.run('.tz-gallery',{noScrollbars:true,async:true});
-    S(`${items.length} PDF(s)`);
-  }catch(e){console.error(e);S("Failed to load PDFs. Ensure repo/path public.");}
-})();
-</script>
+
+    if (MAKE_THUMBS) initThumbs();
+    S(`Ready. ${VIEW.length} PDF${VIEW.length!==1?"s":""}.`);
+  }
+
+  function initThumbs(){
+    if (!window.pdfjsLib){
+      S("PDF.js not available; showing placeholders only.");
+      return;
+    }
+    // Worker MUST match the version loaded above
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+
+    io = new IntersectionObserver(async entries => {
+      for (const e of entries){
+        if (!e.isIntersecting) continue;
+        const img = e.target;
+        io.unobserve(img);
+        const url = img.dataset.pdf;
+        try{
+          const pdf = await pdfjsLib.getDocument({ url, withCredentials:false }).promise;
+          const page = await pdf.getPage(1);
+          const vp = page.getViewport({ scale: THUMB_SCALE });
+          const c = document.createElement("canvas");
+          c.width = Math.floor(vp.width);
+          c.height = Math.floor(vp.height);
+          const ctx = c.getContext("2d", {alpha:false, willReadFrequently:false});
+          await page.render({ canvasContext: ctx, viewport: vp, intent: "display" }).promise;
+          img.src = c.toDataURL("image/jpeg", 0.85);
+          img.classList.remove("skeleton");
+        }catch(err){
+          // Leave the skeleton background; add a subtle failure hint
+          img.alt = "Preview unavailable";
+        }
+      }
+    }, { rootMargin: "300px 0px 300px 0px", threshold: 0.01 });
+
+    document.querySelectorAll(".thumb").forEach(img => io.observe(img));
+  }
+
+  // ------- Boot -------
+  window.addEventListener('DOMContentLoaded', async () => {
+    try{
+      S("Loading manifest…");
+      const r = await fetch(MANIFEST_URL, {cache:"no-store"});
+      if (!r.ok) throw new Error(`Cannot load pdfs.json (${r.status}).`);
+      const items = await r.json();
+      // Normalize manifest: expect {name, href}
+      ALL = (items||[])
+        .filter(x => x && x.href)
+        .map(x => ({ name: x.name || x.href.split('/').pop(), href: x.href }));
+      if (!ALL.length){ S("No PDFs found."); return; }
+
+      $("#q").addEventListener("input", applyFilterSort);
+      $("#sort").addEventListener("change", applyFilterSort);
+
+      applyFilterSort(); // sets VIEW and renders
+    }catch(e){
+      console.error(e);
+      S("Error: " + (e?.message || e));
+    }
+  });
+  </script>
+</body>
+</html>
