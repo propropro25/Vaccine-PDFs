@@ -4,236 +4,181 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>PDF Library</title>
-
-  <!-- PDF.js (for optional thumbnail rendering) -->
-  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.js" defer></script>
-
   <style>
-    :root{
-      color-scheme: dark;
-      --bg:#0b0b0b; --card:#111417; --ink:#e8eaed; --muted:#9aa0a6;
-      --border:#1f2937; --accent:#3b82f6; --accent-2:#60a5fa;
-      --shadow:0 10px 30px rgba(0,0,0,.25);
-      --radius:14px;
-    }
+    :root{color-scheme:dark; --bg:#0b0b0b; --card:#121418; --card2:#0f1115; --muted:#9aa0a6; --ink:#e8eaed; --brand:#377dff; --brand-2:#5a96ff; --ring:#203a72}
     *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--ink);
-         font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-
-    /* Shell */
+    body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Inter,"Helvetica Neue",Arial,sans-serif}
+    a{color:inherit}
     #w{max-width:1200px;margin:28px auto;padding:0 18px}
-    header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:14px}
-    .title{font-size:20px;font-weight:700;margin:0}
-    .controls{display:flex;gap:10px;align-items:center}
-    .search{appearance:none;border:1px solid var(--border);background:#0e1116;color:var(--ink);
-            border-radius:999px;padding:10px 14px 10px 36px;font-size:14px;min-width:240px;outline:none}
-    .search::placeholder{color:#8a93a3}
-    .search-wrap{position:relative}
-    .search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.55}
-    .sort{appearance:none;border:1px solid var(--border);background:#0e1116;color:var(--ink);
-          border-radius:999px;padding:10px 12px;font-size:13px}
-    .count{color:var(--muted);font-size:12px;margin-left:8px}
-
-    /* Grid */
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
-    .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
-    .thumb-wrap{display:block;position:relative;background:#0a0a0a}
-    .thumb{width:100%;aspect-ratio:3/4;object-fit:cover;display:block}
-    .badge{position:absolute;left:10px;bottom:10px;background:rgba(59,130,246,.92);color:#fff;
-           font-size:12px;padding:6px 10px;border-radius:999px}
-    .thumb-wrap:hover .badge{background:rgba(59,130,246,1)}
-    .thumb-wrap:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
-    .meta{padding:12px 12px 13px}
-    .name{font-size:13px;line-height:1.4;color:#dfe3ea}
-    .name small{display:block;color:var(--muted);margin-top:4px}
-
-    /* Skeleton while thumbs render */
-    .skeleton{position:relative;overflow:hidden;background:#0f1217}
-    .skeleton::after{
-      content:'';position:absolute;inset:0;
-      background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent);
-      animation:shimmer 1.2s infinite;
-    }
-    @keyframes shimmer { from{transform:translateX(-100%)} to{transform:translateX(100%)} }
-
-    /* Footer / status */
-    #status{margin:14px 2px 6px;color:var(--muted);font-size:12px;white-space:pre-wrap}
-    a{color:var(--accent-2);text-decoration:none}
-    a:hover{text-decoration:underline}
+    .topbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
+    .title{font-size:22px;font-weight:700;margin-right:auto;display:flex;gap:10px;align-items:center}
+    .count{font:12px/1 ui-monospace,Consolas,monospace;color:var(--muted);padding:2px 6px;border-radius:999px;background:#10131a;border:1px solid #1c2435}
+    .search{position:relative;flex:1;min-width:240px}
+    .search input{width:100%;padding:11px 12px 11px 34px;border-radius:12px;background:#0e1219;border:1px solid #182032;color:var(--ink);outline:none}
+    .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.6}
+    .sort{display:flex;gap:8px;align-items:center}
+    .sort select{padding:10px 12px;border-radius:12px;background:#0e1219;border:1px solid #182032;color:var(--ink)}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+    .card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid #1b2232;border-radius:14px;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.25)}
+    .thumb-wrap{position:relative;aspect-ratio:3/4;background:#0a0d14}
+    .thumb{width:100%;height:100%;object-fit:cover;display:block}
+    .skeleton{background:linear-gradient(90deg,#0d1118 0%,#121722 40%,#0d1118 80%);background-size:200% 100%;animation:shimmer 1.1s infinite}
+    @keyframes shimmer{to{background-position:-200% 0}}
+    .badge{position:absolute;left:12px;bottom:12px;background:var(--brand);border:1px solid #2d65d2;color:#fff;padding:7px 12px;border-radius:999px;font-weight:600;font-size:12px;text-decoration:none;box-shadow:0 6px 18px rgba(21,79,255,.35)}
+    .badge:hover{background:var(--brand-2)}
+    .meta{padding:10px 12px;border-top:1px solid #161d2b;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#cfd5df}
+    #status{margin-top:10px;color:var(--muted);font:12px ui-monospace,Consolas,monospace}
   </style>
 </head>
 <body>
   <div id="w">
-    <header>
-      <h1 class="title">PDF Library <span id="count" class="count"></span></h1>
-      <div class="controls">
-        <div class="search-wrap">
-          <input id="q" class="search" type="search" placeholder="Search files…" spellcheck="false" />
-          <!-- magnifier -->
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M21 21l-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z"
-                  stroke="#9aa0a6" stroke-width="1.6" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <select id="sort" class="sort" title="Sort">
-          <option value="name-asc">Name A → Z</option>
-          <option value="name-desc">Name Z → A</option>
+    <div class="topbar">
+      <div class="title">PDF Library <span id="count" class="count">0</span></div>
+      <label class="search" aria-label="Search PDFs">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.1-4.1M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="#9aa0a6" stroke-width="2" stroke-linecap="round"/></svg>
+        <input id="q" type="search" placeholder="Search files…"/>
+      </label>
+      <div class="sort">
+        <select id="sort">
+          <option value="az" selected>Name A → Z</option>
+          <option value="za">Name Z → A</option>
         </select>
       </div>
-    </header>
+    </div>
 
-    <main id="grid" class="grid" aria-live="polite"></main>
+    <div id="grid" class="grid"></div>
     <div id="status">Loading…</div>
   </div>
 
+  <!-- PDF.js (v3 UMD build works reliably with workers in classic script mode) -->
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js" defer></script>
+
   <script>
-  (() => {
-    const S = t => document.getElementById("status").textContent = t || "";
-    const countEl = document.getElementById("count");
-    const grid = document.getElementById("grid");
-    const q = document.getElementById("q");
-    const sortSel = document.getElementById("sort");
+  // ------- Settings -------
+  const MAKE_THUMBS = true;       // render page-1 thumbnails
+  const THUMB_SCALE = 0.60;       // 0.45–0.75 is typical
+  const MANIFEST_URL = "./pdfs.json?v=" + Date.now(); // same-origin json: [{name,href},…]
 
-    // Turn this on to draw first-page thumbnails (lazy)
-    const MAKE_THUMBS = true;
-    const THUMB_SCALE = .45;
+  // ------- Helpers -------
+  const $ = sel => document.querySelector(sel);
+  const S = t => $("#status").textContent = t || "";
 
-    // Cache-busted manifest path (same origin)
-    const MANIFEST_URL = "./pdfs.json?v=" + Date.now();
+  let ALL = [];          // full list from manifest
+  let VIEW = [];         // filtered/sorted list we render
+  let io = null;         // IntersectionObserver for thumbs
 
-    /** state **/
-    let items = [];        // full list from json
-    let view = [];         // filtered + sorted
-    let io;                // IntersectionObserver for lazy thumbs
+  function applyFilterSort(){
+    const q = $("#q").value.trim().toLowerCase();
+    const mode = $("#sort").value;
+    // filter
+    VIEW = !q ? [...ALL] : ALL.filter(x => x.name.toLowerCase().includes(q));
+    // sort
+    VIEW.sort((a,b)=> a.name.localeCompare(b.name, undefined, {numeric:true, sensitivity:'base'}));
+    if (mode === "za") VIEW.reverse();
+    $("#count").textContent = VIEW.length;
+    renderGrid();
+  }
 
-    function formatCount(n, filtered){
-      if (!n) return "";
-      return filtered && filtered !== n ? `(${filtered}/${n})` : `(${n})`;
+  function renderGrid(){
+    const grid = $("#grid");
+    grid.innerHTML = "";
+    if (io){ io.disconnect(); io = null; }
+
+    for (const it of VIEW){
+      const card = document.createElement("figure");
+      card.className = "card";
+
+      const wrap = document.createElement("div");
+      wrap.className = "thumb-wrap";
+
+      const img = document.createElement("img");
+      img.className = "thumb skeleton";
+      img.alt = "Open PDF";
+      img.decoding = "async";
+      img.loading = "lazy";
+      img.dataset.pdf = it.href; // used by IO to render preview
+      wrap.appendChild(img);
+
+      const open = document.createElement("a");
+      open.href = it.href;
+      open.target = "_blank";
+      open.rel = "noopener";
+      open.className = "badge";
+      open.textContent = "Open PDF";
+      wrap.appendChild(open);
+
+      const meta = document.createElement("figcaption");
+      meta.className = "meta";
+      meta.title = it.name;
+      meta.textContent = it.name;
+
+      card.appendChild(wrap);
+      card.appendChild(meta);
+      grid.appendChild(card);
     }
 
-    function render(cards){
-      grid.innerHTML = "";
-      if (io) io.disconnect();
+    if (MAKE_THUMBS) initThumbs();
+    S(`Ready. ${VIEW.length} PDF${VIEW.length!==1?"s":""}.`);
+  }
 
-      const frag = document.createDocumentFragment();
-      for (const it of cards){
-        const card = document.createElement("div");
-        card.className = "card";
-
-        const a = document.createElement("a");
-        a.className = "thumb-wrap";
-        a.href = it.href;
-        a.target = "_blank";
-        a.rel = "noopener";
-        a.title = it.name;
-
-        const img = document.createElement("img");
-        img.className = "thumb skeleton";
-        img.alt = "Open PDF";
-        a.appendChild(img);
-
-        const badge = document.createElement("span");
-        badge.className = "badge";
-        badge.textContent = "Open PDF";
-        a.appendChild(badge);
-
-        const meta = document.createElement("div");
-        meta.className = "meta";
-        const name = document.createElement("div");
-        name.className = "name";
-        name.textContent = it.name;
-        meta.appendChild(name);
-
-        card.appendChild(a);
-        card.appendChild(meta);
-        frag.appendChild(card);
-      }
-      grid.appendChild(frag);
-
-      if (MAKE_THUMBS) initThumbs(cards);
+  function initThumbs(){
+    if (!window.pdfjsLib){
+      S("PDF.js not available; showing placeholders only.");
+      return;
     }
+    // Worker MUST match the version loaded above
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
 
-    function sortItems(arr){
-      const mode = sortSel.value;
-      return [...arr].sort((a,b)=>{
-        const an = a.name.toLocaleLowerCase();
-        const bn = b.name.toLocaleLowerCase();
-        const cmp = an.localeCompare(bn, undefined, { numeric:true });
-        return mode === "name-desc" ? -cmp : cmp;
-      });
-    }
-
-    function filterAndRender(){
-      const term = q.value.trim().toLocaleLowerCase();
-      const filtered = term
-        ? items.filter(it => it.name.toLocaleLowerCase().includes(term))
-        : items.slice();
-
-      view = sortItems(filtered);
-      render(view);
-
-      countEl.textContent = formatCount(items.length, filtered.length);
-      S(view.length ? "" : "No matches.");
-    }
-
-    function initThumbs(cards){
-      if (!window.pdfjsLib){
-        S("PDF.js not loaded; thumbnails disabled.");
-        return;
-      }
-      pdfjsLib.GlobalWorkerOptions.workerSrc =
-        "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.js";
-
-      io = new IntersectionObserver(async entries => {
-        for (const e of entries){
-          if (!e.isIntersecting) continue;
-          const img = e.target;
-          io.unobserve(img);
-          const href = img.parentElement.href;
-          try {
-            const pdf = await pdfjsLib.getDocument({ url: href, withCredentials:false }).promise;
-            const page = await pdf.getPage(1);
-            const vp = page.getViewport({ scale: THUMB_SCALE });
-            const c = document.createElement("canvas");
-            c.width = vp.width; c.height = vp.height;
-            await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
-            img.src = c.toDataURL("image/jpeg", .8);
-            img.classList.remove("skeleton");
-          } catch {
-            img.alt = "Preview unavailable";
-            img.classList.remove("skeleton");
-          }
+    io = new IntersectionObserver(async entries => {
+      for (const e of entries){
+        if (!e.isIntersecting) continue;
+        const img = e.target;
+        io.unobserve(img);
+        const url = img.dataset.pdf;
+        try{
+          const pdf = await pdfjsLib.getDocument({ url, withCredentials:false }).promise;
+          const page = await pdf.getPage(1);
+          const vp = page.getViewport({ scale: THUMB_SCALE });
+          const c = document.createElement("canvas");
+          c.width = Math.floor(vp.width);
+          c.height = Math.floor(vp.height);
+          const ctx = c.getContext("2d", {alpha:false, willReadFrequently:false});
+          await page.render({ canvasContext: ctx, viewport: vp, intent: "display" }).promise;
+          img.src = c.toDataURL("image/jpeg", 0.85);
+          img.classList.remove("skeleton");
+        }catch(err){
+          // Leave the skeleton background; add a subtle failure hint
+          img.alt = "Preview unavailable";
         }
-      }, { rootMargin: "300px" });
-
-      document.querySelectorAll(".thumb").forEach(img => io.observe(img));
-    }
-
-    async function boot(){
-      try{
-        const r = await fetch(MANIFEST_URL, { cache:"no-store" });
-        if (!r.ok) throw new Error(`Cannot load pdfs.json (${r.status}).`);
-        items = await r.json();
-
-        // normalize / guard
-        items = (Array.isArray(items) ? items : []).filter(x => x && x.href && x.name);
-        if (!items.length){ S("pdfs.json is empty."); return; }
-
-        filterAndRender();
-        S(`Ready. ${items.length} PDF${items.length===1?"":"s"}.`);
-      }catch(err){
-        console.error(err);
-        S("Error: " + (err?.message || err));
       }
+    }, { rootMargin: "300px 0px 300px 0px", threshold: 0.01 });
+
+    document.querySelectorAll(".thumb").forEach(img => io.observe(img));
+  }
+
+  // ------- Boot -------
+  window.addEventListener('DOMContentLoaded', async () => {
+    try{
+      S("Loading manifest…");
+      const r = await fetch(MANIFEST_URL, {cache:"no-store"});
+      if (!r.ok) throw new Error(`Cannot load pdfs.json (${r.status}).`);
+      const items = await r.json();
+      // Normalize manifest: expect {name, href}
+      ALL = (items||[])
+        .filter(x => x && x.href)
+        .map(x => ({ name: x.name || x.href.split('/').pop(), href: x.href }));
+      if (!ALL.length){ S("No PDFs found."); return; }
+
+      $("#q").addEventListener("input", applyFilterSort);
+      $("#sort").addEventListener("change", applyFilterSort);
+
+      applyFilterSort(); // sets VIEW and renders
+    }catch(e){
+      console.error(e);
+      S("Error: " + (e?.message || e));
     }
-
-    // events
-    q.addEventListener("input", filterAndRender);
-    sortSel.addEventListener("change", filterAndRender);
-
-    // go
-    window.addEventListener("DOMContentLoaded", boot);
-  })();
+  });
   </script>
 </body>
 </html>
