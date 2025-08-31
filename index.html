@@ -1,230 +1,239 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>PDF Library</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>PDF Library</title>
 
-<!-- libs -->
-<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.js" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" defer></script>
+  <!-- PDF.js (for optional thumbnail rendering) -->
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.js" defer></script>
 
-<style>
-  :root{
-    color-scheme:dark;
-    --bg:#0b0b0b; --panel:#0f1216; --border:#1b1f26; --text:#f1f3f4; --muted:#9aa0a6;
-    --accent:#3d6df9; --ring:0 0 0 3px #2b5cff66;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-  #w{max-width:1200px;margin:18px auto 48px;padding:0 16px}
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#0b0b0b; --card:#111417; --ink:#e8eaed; --muted:#9aa0a6;
+      --border:#1f2937; --accent:#3b82f6; --accent-2:#60a5fa;
+      --shadow:0 10px 30px rgba(0,0,0,.25);
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);
+         font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
 
-  header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:6px 0 14px}
-  h1{margin:0;font-size:24px}
-  #count{opacity:.7}
-  .spacer{flex:1}
-  .searchwrap{position:relative}
-  .searchwrap:before{content:"🔎";position:absolute;left:12px;top:7px;opacity:.55}
-  input[type="search"]{min-width:260px;background:#0e0e10;border:1px solid #202124;border-radius:999px;color:#fff;
-    padding:10px 12px 10px 38px;outline:none}
-  input::placeholder{color:#9aa0a6}
+    /* Shell */
+    #w{max-width:1200px;margin:28px auto;padding:0 18px}
+    header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:14px}
+    .title{font-size:20px;font-weight:700;margin:0}
+    .controls{display:flex;gap:10px;align-items:center}
+    .search{appearance:none;border:1px solid var(--border);background:#0e1116;color:var(--ink);
+            border-radius:999px;padding:10px 14px 10px 36px;font-size:14px;min-width:240px;outline:none}
+    .search::placeholder{color:#8a93a3}
+    .search-wrap{position:relative}
+    .search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.55}
+    .sort{appearance:none;border:1px solid var(--border);background:#0e1116;color:var(--ink);
+          border-radius:999px;padding:10px 12px;font-size:13px}
+    .count{color:var(--muted);font-size:12px;margin-left:8px}
 
-  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
-  .btn{background:#17305c;border:1px solid #264a8e;color:#dbe3ff;border-radius:999px;padding:8px 12px;cursor:pointer}
-  .btn.secondary{background:#151515;border-color:#303134;color:#e0e0e0}
-  .btn:disabled{opacity:.45;cursor:not-allowed}
+    /* Grid */
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+    .thumb-wrap{display:block;position:relative;background:#0a0a0a}
+    .thumb{width:100%;aspect-ratio:3/4;object-fit:cover;display:block}
+    .badge{position:absolute;left:10px;bottom:10px;background:rgba(59,130,246,.92);color:#fff;
+           font-size:12px;padding:6px 10px;border-radius:999px}
+    .thumb-wrap:hover .badge{background:rgba(59,130,246,1)}
+    .thumb-wrap:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
+    .meta{padding:12px 12px 13px}
+    .name{font-size:13px;line-height:1.4;color:#dfe3ea}
+    .name small{display:block;color:var(--muted);margin-top:4px}
 
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
-  .card{
-    position:relative;background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;
-    box-shadow:0 10px 24px rgba(0,0,0,.20);outline:none;
-  }
-  .card:focus{box-shadow:var(--ring)}
-  .thumb{width:100%;height:310px;object-fit:cover;display:block;background:#0a0a0a}
-  .label{padding:10px 12px;border-top:1px solid #171a20;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .open{
-    position:absolute;left:14px;bottom:58px;background:var(--accent);border:none;color:white;border-radius:999px;
-    padding:9px 14px;font-weight:600;cursor:pointer
-  }
-  .meta{position:absolute;left:12px;bottom:12px;font-size:11.5px;color:var(--muted)}
-  .pick{position:absolute;top:10px;left:10px;scale:1.1;display:none}
-  body.select-mode .pick{display:block}
-  .badge{position:absolute;top:8px;left:40px;background:#152042;color:#dce2ff;padding:2px 8px;border-radius:999px;font-size:12px;display:none}
-  body.select-mode .pick:checked + .badge{display:inline-block}
-  #status{margin-top:12px;opacity:.85;font-family:ui-monospace,Consolas,monospace;white-space:pre-wrap}
-  mark{background:#2b5cff33;padding:0 .1em;border-radius:3px}
-  @media (max-width:480px){ .thumb{height:260px} }
-</style>
+    /* Skeleton while thumbs render */
+    .skeleton{position:relative;overflow:hidden;background:#0f1217}
+    .skeleton::after{
+      content:'';position:absolute;inset:0;
+      background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent);
+      animation:shimmer 1.2s infinite;
+    }
+    @keyframes shimmer { from{transform:translateX(-100%)} to{transform:translateX(100%)} }
+
+    /* Footer / status */
+    #status{margin:14px 2px 6px;color:var(--muted);font-size:12px;white-space:pre-wrap}
+    a{color:var(--accent-2);text-decoration:none}
+    a:hover{text-decoration:underline}
+  </style>
 </head>
 <body>
   <div id="w">
     <header>
-      <h1>PDF Library</h1>
-      <span id="count"></span>
-      <div class="spacer"></div>
-      <div class="searchwrap"><input id="q" type="search" placeholder="Search files…"></div>
+      <h1 class="title">PDF Library <span id="count" class="count"></span></h1>
+      <div class="controls">
+        <div class="search-wrap">
+          <input id="q" class="search" type="search" placeholder="Search files…" spellcheck="false" />
+          <!-- magnifier -->
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M21 21l-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z"
+                  stroke="#9aa0a6" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <select id="sort" class="sort" title="Sort">
+          <option value="name-asc">Name A → Z</option>
+          <option value="name-desc">Name Z → A</option>
+        </select>
+      </div>
     </header>
 
-    <div class="toolbar">
-      <button id="toggleSel" class="btn">Select files</button>
-      <button id="selAll" class="btn secondary" disabled>Select all</button>
-      <button id="selNone" class="btn secondary" disabled>Clear</button>
-      <button id="dlZip" class="btn" disabled>Download selected (.zip)</button>
-    </div>
-
-    <div id="grid" class="grid"></div>
-    <div id="status"></div>
+    <main id="grid" class="grid" aria-live="polite"></main>
+    <div id="status">Loading…</div>
   </div>
 
-<script>
-(()=>{
+  <script>
+  (() => {
+    const S = t => document.getElementById("status").textContent = t || "";
+    const countEl = document.getElementById("count");
+    const grid = document.getElementById("grid");
+    const q = document.getElementById("q");
+    const sortSel = document.getElementById("sort");
 
-const S = t => document.getElementById('status').textContent = t || '';
-const byId = id => document.getElementById(id);
+    // Turn this on to draw first-page thumbnails (lazy)
+    const MAKE_THUMBS = true;
+    const THUMB_SCALE = .45;
 
-const MANIFEST_URL = './pdfs.json?v=' + Date.now();
-const MAKE_THUMBS  = true;      // keep previews
-const THUMB_SCALE  = 0.45;      // preview size
+    // Cache-busted manifest path (same origin)
+    const MANIFEST_URL = "./pdfs.json?v=" + Date.now();
 
-let allItems=[], filteredItems=[];
-const selected = new Set();
-let selectMode = false;
+    /** state **/
+    let items = [];        // full list from json
+    let view = [];         // filtered + sorted
+    let io;                // IntersectionObserver for lazy thumbs
 
-window.addEventListener('load', ()=>{
-  if (window.pdfjsLib){
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.js';
-  }
-});
-
-async function loadManifest(){
-  const r = await fetch(MANIFEST_URL, {cache:'no-store'});
-  if(!r.ok) throw new Error('Cannot load pdfs.json ('+r.status+').');
-  allItems = (await r.json()).sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
-  filteredItems = allItems.slice();
-  byId('count').textContent = `(${allItems.length})`;
-}
-
-function renderGrid(items, query=''){
-  const grid = byId('grid'); grid.innerHTML = '';
-  items.forEach(it=>{
-    const card = document.createElement('div');
-    card.className='card'; card.tabIndex=0;
-
-    const img = document.createElement('img');
-    img.className='thumb'; img.alt=`Preview ${it.name}`; img.loading='lazy';
-    card.appendChild(img);
-
-    const open = document.createElement('button');
-    open.className='open'; open.textContent='Open PDF';
-    open.addEventListener('click', e=>{ e.stopPropagation(); window.open(it.href,'_blank'); });
-    card.appendChild(open);
-
-    const cb = document.createElement('input'); cb.type='checkbox'; cb.className='pick';
-    cb.checked = selected.has(it.href);
-    cb.addEventListener('change', ()=>{ cb.checked?selected.add(it.href):selected.delete(it.href); updateSelUI(); });
-    card.appendChild(cb);
-
-    const badge = document.createElement('span'); badge.className='badge'; badge.textContent='Selected'; card.appendChild(badge);
-
-    const label = document.createElement('div'); label.className='label'; label.title=it.name;
-    label.innerHTML = query ? highlight(it.name, query) : it.name;
-    card.appendChild(label);
-
-    const meta = document.createElement('div'); meta.className='meta'; meta.textContent='';
-    card.appendChild(meta);
-    headSize(it.href, label);
-
-    // keyboard: Enter OR Space opens (Space acts like “expand”)
-    card.addEventListener('keydown', e=>{
-      if(e.key==='Enter' || e.code==='Enter' || e.key===' ' || e.code==='Space'){
-        if (e.target.tagName==='INPUT') return; // let checkbox toggle with Space
-        e.preventDefault(); window.open(it.href,'_blank');
-      }
-    });
-
-    // clicking card (not checkbox) opens
-    card.addEventListener('click', e=>{ if(e.target!==cb){ window.open(it.href,'_blank'); } });
-
-    grid.appendChild(card);
-
-    if (MAKE_THUMBS) observeThumb(img, it.href);
-  });
-
-  document.body.classList.toggle('select-mode', selectMode);
-  updateSelUI();
-}
-
-function highlight(txt,q){ const esc=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); return txt.replace(new RegExp(esc,'ig'), m=>`<mark>${m}</mark>`); }
-
-async function headSize(href, el){
-  try{ const r=await fetch(href,{method:'HEAD'}); const len=r.headers.get('content-length');
-       if(len) el.title=`${el.title||href}  •  ${(Number(len)/1048576).toFixed(2)} MB`; }catch{}
-}
-
-function observeThumb(img, url){
-  const io = new IntersectionObserver(async entries=>{
-    for (const e of entries){
-      if(!e.isIntersecting) continue;
-      io.unobserve(img);
-      try{
-        const pdf = await pdfjsLib.getDocument({url,withCredentials:false}).promise;
-        const page = await pdf.getPage(1);
-        const vp = page.getViewport({scale:THUMB_SCALE});
-        const c = document.createElement('canvas'); c.width=vp.width; c.height=vp.height;
-        await page.render({canvasContext:c.getContext('2d'), viewport:vp}).promise;
-        img.src = c.toDataURL('image/jpeg', .8);
-      }catch{ img.alt='Preview unavailable'; }
+    function formatCount(n, filtered){
+      if (!n) return "";
+      return filtered && filtered !== n ? `(${filtered}/${n})` : `(${n})`;
     }
-  }, {rootMargin:'200px'});
-  io.observe(img);
-}
 
-// selection UI
-function updateSelUI(){
-  const any = selected.size>0, have = filteredItems.length>0;
-  byId('selAll').disabled = !selectMode || !have;
-  byId('selNone').disabled = !selectMode || !any;
-  byId('dlZip').disabled = !any;
-  byId('dlZip').textContent = any ? `Download selected (.zip) – ${selected.size}` : 'Download selected (.zip)';
-}
-byId('toggleSel').addEventListener('click', ()=>{
-  selectMode=!selectMode; document.body.classList.toggle('select-mode', selectMode);
-  byId('toggleSel').textContent = selectMode ? 'Done selecting' : 'Select files';
-  updateSelUI();
-});
-byId('selAll').addEventListener('click', ()=>{ filteredItems.forEach(it=>selected.add(it.href));
-  document.querySelectorAll('.pick').forEach(cb=>cb.checked=true); updateSelUI(); });
-byId('selNone').addEventListener('click', ()=>{ selected.clear();
-  document.querySelectorAll('.pick').forEach(cb=>cb.checked=false); updateSelUI(); });
-byId('dlZip').addEventListener('click', downloadZip);
+    function render(cards){
+      grid.innerHTML = "";
+      if (io) io.disconnect();
 
-async function downloadZip(){
-  if(!selected.size) return;
-  const files=[...selected], zip=new JSZip();
-  S(`Collecting ${files.length} file(s)…`);
-  for(let i=0;i<files.length;i++){
-    const href=files[i]; S(`Fetching ${i+1}/${files.length}: ${href.split('/').pop()}`);
-    const res=await fetch(href); const blob=await res.blob(); zip.file(href.split('/').pop(), blob);
-  }
-  S('Zipping…'); const out=await zip.generateAsync({type:'blob'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(out);
-  a.download=`pdfs-selected-${files.length}.zip`; a.click(); URL.revokeObjectURL(a.href); S('Ready.');
-}
+      const frag = document.createDocumentFragment();
+      for (const it of cards){
+        const card = document.createElement("div");
+        card.className = "card";
 
-// search
-byId('q').addEventListener('input', (e)=>{
-  const q=e.target.value.trim();
-  filteredItems = q ? allItems.filter(it=>it.name.toLowerCase().includes(q.toLowerCase())) : allItems.slice();
-  renderGrid(filteredItems, q);
-});
+        const a = document.createElement("a");
+        a.className = "thumb-wrap";
+        a.href = it.href;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.title = it.name;
 
-// boot
-(async function init(){
-  try{ S('Loading…'); await loadManifest(); renderGrid(allItems); S('Ready.'); }
-  catch(err){ console.error(err); S('Error: '+(err?.message||err)); }
-})();
-})();
-</script>
+        const img = document.createElement("img");
+        img.className = "thumb skeleton";
+        img.alt = "Open PDF";
+        a.appendChild(img);
+
+        const badge = document.createElement("span");
+        badge.className = "badge";
+        badge.textContent = "Open PDF";
+        a.appendChild(badge);
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        const name = document.createElement("div");
+        name.className = "name";
+        name.textContent = it.name;
+        meta.appendChild(name);
+
+        card.appendChild(a);
+        card.appendChild(meta);
+        frag.appendChild(card);
+      }
+      grid.appendChild(frag);
+
+      if (MAKE_THUMBS) initThumbs(cards);
+    }
+
+    function sortItems(arr){
+      const mode = sortSel.value;
+      return [...arr].sort((a,b)=>{
+        const an = a.name.toLocaleLowerCase();
+        const bn = b.name.toLocaleLowerCase();
+        const cmp = an.localeCompare(bn, undefined, { numeric:true });
+        return mode === "name-desc" ? -cmp : cmp;
+      });
+    }
+
+    function filterAndRender(){
+      const term = q.value.trim().toLocaleLowerCase();
+      const filtered = term
+        ? items.filter(it => it.name.toLocaleLowerCase().includes(term))
+        : items.slice();
+
+      view = sortItems(filtered);
+      render(view);
+
+      countEl.textContent = formatCount(items.length, filtered.length);
+      S(view.length ? "" : "No matches.");
+    }
+
+    function initThumbs(cards){
+      if (!window.pdfjsLib){
+        S("PDF.js not loaded; thumbnails disabled.");
+        return;
+      }
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.js";
+
+      io = new IntersectionObserver(async entries => {
+        for (const e of entries){
+          if (!e.isIntersecting) continue;
+          const img = e.target;
+          io.unobserve(img);
+          const href = img.parentElement.href;
+          try {
+            const pdf = await pdfjsLib.getDocument({ url: href, withCredentials:false }).promise;
+            const page = await pdf.getPage(1);
+            const vp = page.getViewport({ scale: THUMB_SCALE });
+            const c = document.createElement("canvas");
+            c.width = vp.width; c.height = vp.height;
+            await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+            img.src = c.toDataURL("image/jpeg", .8);
+            img.classList.remove("skeleton");
+          } catch {
+            img.alt = "Preview unavailable";
+            img.classList.remove("skeleton");
+          }
+        }
+      }, { rootMargin: "300px" });
+
+      document.querySelectorAll(".thumb").forEach(img => io.observe(img));
+    }
+
+    async function boot(){
+      try{
+        const r = await fetch(MANIFEST_URL, { cache:"no-store" });
+        if (!r.ok) throw new Error(`Cannot load pdfs.json (${r.status}).`);
+        items = await r.json();
+
+        // normalize / guard
+        items = (Array.isArray(items) ? items : []).filter(x => x && x.href && x.name);
+        if (!items.length){ S("pdfs.json is empty."); return; }
+
+        filterAndRender();
+        S(`Ready. ${items.length} PDF${items.length===1?"":"s"}.`);
+      }catch(err){
+        console.error(err);
+        S("Error: " + (err?.message || err));
+      }
+    }
+
+    // events
+    q.addEventListener("input", filterAndRender);
+    sortSel.addEventListener("change", filterAndRender);
+
+    // go
+    window.addEventListener("DOMContentLoaded", boot);
+  })();
+  </script>
 </body>
 </html>
